@@ -316,7 +316,7 @@ map(
   }
 )
 
-# codes -------------------------------------------------------------------
+# Attributes -------------------------------------------------------------------
 
 load("../observatory-codes/02-2-product-data-tidy/hs-rev1992-product-names.RData")
 
@@ -376,7 +376,7 @@ colors <- product_names_3 %>%
     "#7485aa", "#635b56"
   ))
 
-attributes_products <- product_names %>%
+attributes_commodities <- product_names %>%
   left_join(product_names_2) %>%
   select(commodity_code, commodity_fullname_english,
          group_code, group_fullname_english = group_name)
@@ -384,12 +384,71 @@ attributes_products <- product_names %>%
 attributes_communities <- product_names_3 %>%
   left_join(colors)
 
-attributes_products_shortnames <- attributes_products %>%
+attributes_commodities_shortnames <- attributes_commodities %>%
   select(commodity_code, commodity_fullname_english) %>%
   left_join(hs_product_names_92)
 
 try(dir.create("hs-rev1992-visualization/attributes"))
 write_parquet(attributes_countries, "hs-rev1992-visualization/attributes/countries.parquet")
-write_parquet(attributes_products, "hs-rev1992-visualization/attributes/products.parquet")
+write_parquet(attributes_products, "hs-rev1992-visualization/attributes/commodities.parquet")
 write_parquet(attributes_communities, "hs-rev1992-visualization/attributes/communities.parquet")
-write_parquet(attributes_products_shortnames, "hs-rev1992-visualization/attributes/products_shortnames.parquet")
+write_parquet(attributes_products_shortnames, "hs-rev1992-visualization/attributes/commodities_shortnames.parquet")
+
+# YR-Communities ---------------------------------------------------------------
+
+d_yrc <- open_dataset("hs-rev1992-visualization/yrc",
+                      partitioning = c("year", "reporter_iso"))
+
+map(
+  1962:2020,
+  function(y) {
+    message(y)
+
+    y2 <- paste0("year=", y)
+
+    d_yrc %>%
+      filter(
+        year == y2
+      ) %>%
+      collect() %>%
+      mutate(
+        year = remove_hive(year),
+        reporter_iso = remove_hive(reporter_iso)
+      ) %>%
+      left_join(attributes_communities) %>%
+      group_by(year, reporter_iso, community_code) %>%
+      summarise(
+        trade_value_usd_exp = sum(trade_value_usd_exp, na.rm = T),
+        trade_value_usd_imp = sum(trade_value_usd_imp, na.rm = T)
+      ) %>%
+      write_dataset("hs-rev1992-visualization/yr-communities", hive_style = T)
+  }
+)
+
+# YR-Groups ------------------------------------------------------------------
+
+map(
+  1962:2020,
+  function(y) {
+    message(y)
+
+    y2 <- paste0("year=", y)
+
+    d_yrc %>%
+      filter(
+        year == y2
+      ) %>%
+      collect() %>%
+      mutate(
+        year = remove_hive(year),
+        reporter_iso = remove_hive(reporter_iso)
+      ) %>%
+      left_join(attributes_products) %>%
+      group_by(year, reporter_iso, group_code) %>%
+      summarise(
+        trade_value_usd_exp = sum(trade_value_usd_exp, na.rm = T),
+        trade_value_usd_imp = sum(trade_value_usd_imp, na.rm = T)
+      ) %>%
+      write_dataset("hs-rev1992-visualization/yr-groups", hive_style = T)
+  }
+)
