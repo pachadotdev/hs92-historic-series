@@ -199,92 +199,8 @@ map(
         trade_value_usd_imp = sum(trade_value_usd_imp, na.rm = T)
       )
 
-    max_exp <- d_yrpc %>%
-      filter(
-        commodity_code != "9999",
-        year == y2
-      ) %>%
-      collect() %>%
-      mutate(
-        reporter_iso = remove_hive(reporter_iso)
-      ) %>%
-      group_by(reporter_iso, commodity_code) %>%
-      summarise(trade_value_usd_exp = sum(trade_value_usd_exp, na.rm = T)) %>%
-      group_by(reporter_iso) %>%
-      slice(which.max(trade_value_usd_exp)) %>%
-      rename(
-        commodity_code_top_exp = commodity_code,
-        trade_value_usd_top_exp = trade_value_usd_exp
-      ) %>%
-      filter(trade_value_usd_top_exp > 0)
-
-    max_exp2 <- d_yrpc %>%
-      filter(
-        commodity_code == "9999",
-        year == y2
-      ) %>%
-      collect() %>%
-      mutate(
-        reporter_iso = remove_hive(reporter_iso)
-      ) %>%
-      group_by(reporter_iso, commodity_code) %>%
-      summarise(trade_value_usd_exp = sum(trade_value_usd_exp, na.rm = T)) %>%
-      group_by(reporter_iso) %>%
-      slice(which.max(trade_value_usd_exp)) %>%
-      rename(
-        commodity_code_top_exp = commodity_code,
-        trade_value_usd_top_exp = trade_value_usd_exp
-      ) %>%
-      filter(trade_value_usd_top_exp > 0) %>%
-      anti_join(max_exp, by = "reporter_iso")
-
-    max_exp <- max_exp %>% bind_rows(max_exp2)
-
-    max_imp <- d_yrpc %>%
-      filter(
-        commodity_code != "9999",
-        year == y2
-      ) %>%
-      collect() %>%
-      mutate(
-        reporter_iso = remove_hive(reporter_iso)
-      ) %>%
-      group_by(reporter_iso, commodity_code) %>%
-      summarise(trade_value_usd_imp = sum(trade_value_usd_imp, na.rm = T)) %>%
-      group_by(reporter_iso) %>%
-      slice(which.max(trade_value_usd_imp)) %>%
-      rename(
-        commodity_code_top_imp = commodity_code,
-        trade_value_usd_top_imp = trade_value_usd_imp
-      ) %>%
-      filter(trade_value_usd_top_imp > 0)
-
-    max_imp2 <- d_yrpc %>%
-      filter(
-        commodity_code == "9999",
-        year == y2
-      ) %>%
-      collect() %>%
-      mutate(
-        reporter_iso = remove_hive(reporter_iso)
-      ) %>%
-      group_by(reporter_iso, commodity_code) %>%
-      summarise(trade_value_usd_imp = sum(trade_value_usd_imp, na.rm = T)) %>%
-      group_by(reporter_iso) %>%
-      slice(which.max(trade_value_usd_imp)) %>%
-      rename(
-        commodity_code_top_imp = commodity_code,
-        trade_value_usd_top_imp = trade_value_usd_imp
-      ) %>%
-      filter(trade_value_usd_top_imp > 0) %>%
-      anti_join(max_imp, by = "reporter_iso")
-
-    max_imp <- max_imp %>% bind_rows(max_imp2)
-
     d_yr %>%
-      left_join(max_exp, by = "reporter_iso") %>%
-      left_join(max_imp, by = "reporter_iso") %>%
-      group_by(year, reporter_iso) %>%
+      group_by(year) %>%
       write_dataset("hs-rev1992-visualization/yr", hive_style = T)
   }
 )
@@ -421,6 +337,7 @@ map(
         trade_value_usd_exp = sum(trade_value_usd_exp, na.rm = T),
         trade_value_usd_imp = sum(trade_value_usd_imp, na.rm = T)
       ) %>%
+      group_by(year) %>%
       write_dataset("hs-rev1992-visualization/yr-communities", hive_style = T)
   }
 )
@@ -443,12 +360,13 @@ map(
         year = remove_hive(year),
         reporter_iso = remove_hive(reporter_iso)
       ) %>%
-      left_join(attributes_products) %>%
+      left_join(attributes_commodities) %>%
       group_by(year, reporter_iso, group_code) %>%
       summarise(
         trade_value_usd_exp = sum(trade_value_usd_exp, na.rm = T),
         trade_value_usd_imp = sum(trade_value_usd_imp, na.rm = T)
       ) %>%
+      group_by(year) %>%
       write_dataset("hs-rev1992-visualization/yr-groups", hive_style = T)
   }
 )
