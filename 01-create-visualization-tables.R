@@ -1,6 +1,6 @@
 source("99-pkgs-funs-dirs.R")
 
-d_hs <- open_dataset("hs-rev1992-historic",
+d_hs <- open_dataset("hs92-historic",
   partitioning = c("aggregate_level", "trade_flow", "year", "reporter_iso"))
 
 # YRPC ------------------------------------------------------------------
@@ -111,7 +111,7 @@ map(
       filter(trade_value_usd_exc > 0) %>%
       select(-trade_value_usd_exc) %>%
       group_by(year, reporter_iso) %>%
-      write_dataset("hs-rev1992-visualization/yrpc", hive_style = T)
+      write_dataset("hs92-visualization/yrpc", hive_style = T)
 
     rm(d_exp_corrected, d_imp_corrected); gc()
   }
@@ -119,7 +119,7 @@ map(
 
 # YRP ------------------------------------------------------------------
 
-d_yrpc <- open_dataset("hs-rev1992-visualization/yrpc",
+d_yrpc <- open_dataset("hs92-visualization/yrpc",
                        partitioning = c("year","reporter_iso"))
 
 map(
@@ -143,7 +143,7 @@ map(
         trade_value_usd_exp = sum(trade_value_usd_exp, na.rm = T),
         trade_value_usd_imp = sum(trade_value_usd_imp, na.rm = T)
       ) %>%
-      write_dataset("hs-rev1992-visualization/yrp", hive_style = T)
+      write_dataset("hs92-visualization/yrp", hive_style = T)
   }
 )
 
@@ -171,7 +171,7 @@ map(
         trade_value_usd_imp = sum(trade_value_usd_imp, na.rm = T)
       ) %>%
       group_by(year, reporter_iso) %>%
-      write_dataset("hs-rev1992-visualization/yrc", hive_style = T)
+      write_dataset("hs92-visualization/yrc", hive_style = T)
   }
 )
 
@@ -201,7 +201,7 @@ map(
 
     d_yr %>%
       group_by(year) %>%
-      write_dataset("hs-rev1992-visualization/yr", hive_style = T)
+      write_dataset("hs92-visualization/yr", hive_style = T)
   }
 )
 
@@ -228,13 +228,13 @@ map(
         trade_value_usd_imp = sum(trade_value_usd_imp, na.rm = T)
       ) %>%
       group_by(year) %>%
-      write_dataset("hs-rev1992-visualization/yc", hive_style = T)
+      write_dataset("hs92-visualization/yc", hive_style = T)
   }
 )
 
 # Attributes -------------------------------------------------------------------
 
-load("../observatory-codes/02-2-product-data-tidy/hs-rev1992-product-names.RData")
+load("../observatory-codes/02-2-product-data-tidy/hs92-product-names.RData")
 
 hs_product_names_92 <- hs_product_names %>%
   select(commodity_code = hs, commodity_shortname_english = product_name) %>%
@@ -304,15 +304,15 @@ attributes_commodities_shortnames <- attributes_commodities %>%
   select(commodity_code, commodity_fullname_english) %>%
   left_join(hs_product_names_92)
 
-try(dir.create("hs-rev1992-visualization/attributes"))
-write_parquet(attributes_countries, "hs-rev1992-visualization/attributes/countries.parquet")
-write_parquet(attributes_products, "hs-rev1992-visualization/attributes/commodities.parquet")
-write_parquet(attributes_communities, "hs-rev1992-visualization/attributes/communities.parquet")
-write_parquet(attributes_products_shortnames, "hs-rev1992-visualization/attributes/commodities_shortnames.parquet")
+try(dir.create("hs92-visualization/attributes"))
+write_parquet(attributes_countries, "hs92-visualization/attributes/countries.parquet")
+write_parquet(attributes_products, "hs92-visualization/attributes/commodities.parquet")
+write_parquet(attributes_communities, "hs92-visualization/attributes/communities.parquet")
+write_parquet(attributes_products_shortnames, "hs92-visualization/attributes/commodities_shortnames.parquet")
 
 # YR-Communities ---------------------------------------------------------------
 
-d_yrc <- open_dataset("hs-rev1992-visualization/yrc",
+d_yrc <- open_dataset("hs92-visualization/yrc",
                       partitioning = c("year", "reporter_iso"))
 
 map(
@@ -338,7 +338,7 @@ map(
         trade_value_usd_imp = sum(trade_value_usd_imp, na.rm = T)
       ) %>%
       group_by(year) %>%
-      write_dataset("hs-rev1992-visualization/yr-communities", hive_style = T)
+      write_dataset("hs92-visualization/yr-communities", hive_style = T)
   }
 )
 
@@ -367,6 +367,6 @@ map(
         trade_value_usd_imp = sum(trade_value_usd_imp, na.rm = T)
       ) %>%
       group_by(year) %>%
-      write_dataset("hs-rev1992-visualization/yr-groups", hive_style = T)
+      write_dataset("hs92-visualization/yr-groups", hive_style = T)
   }
 )
