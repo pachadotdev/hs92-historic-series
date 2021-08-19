@@ -17,7 +17,7 @@ sitc2_to_hs92 <- product_correlation %>%
 
 # hs ----
 
-d_hs <- open_dataset("../uncomtrade-datasets-arrow/hs92/parquet/",
+d_hs <- open_dataset("../uncomtrade-datasets-arrow/hs-rev1992/parquet/",
                      partitioning = c("aggregate_level", "trade_flow", "year", "reporter_iso"))
 
 # chl2015 <- d_hs %>%
