@@ -74,7 +74,7 @@ map(
 
     d4 %>%
       group_by(aggregate_level, trade_flow, year, reporter_iso) %>%
-      write_dataset(out_dir, hive_style = T)
+      write_dataset("intermediate-data-hs92", hive_style = T)
 
     rm(d6, d4); gc()
   }
@@ -88,80 +88,137 @@ d_sitc1 <- open_dataset("../uncomtrade-datasets-arrow/sitc-rev1/parquet/",
 d_sitc2 <- open_dataset("../uncomtrade-datasets-arrow/sitc-rev2/parquet/",
   partitioning = c("aggregate_level", "trade_flow", "year", "reporter_iso"))
 
+sitc_to_hs92 <- function(y, c = "sitc1") {
+  message(y)
+
+  y2 <- paste0("year=", y)
+
+  if (c == "sitc1") {
+    d <- d_sitc1
+  } else {
+    d <- d_sitc2
+  }
+
+  d6 <- d %>%
+    filter(
+      year == y2,
+      aggregate_level == "aggregate_level=5",
+      partner_iso != "wld"
+    ) %>%
+    select(aggregate_level, trade_flow, year, reporter_iso, partner_iso, commodity_code, trade_value_usd) %>%
+    collect() %>%
+    mutate(
+      aggregate_level = remove_hive(aggregate_level),
+      trade_flow = remove_hive(trade_flow),
+      year = remove_hive(year),
+      reporter_iso = remove_hive(reporter_iso)
+    )
+
+  if (c == "sitc1") {
+    d6 <- d6 %>%
+      left_join(sitc1_to_sitc2, by = c("commodity_code" = "sitc1")) %>%
+      left_join(sitc2_to_hs92, by = "sitc2")
+  } else {
+    d6 <- d6 %>%
+      left_join(sitc2_to_hs92, by = c("commodity_code" = "sitc2"))
+  }
+
+  d6 <- d6 %>%
+    select(aggregate_level, trade_flow, year, reporter_iso, partner_iso, commodity_code = hs92, trade_value_usd) %>%
+    mutate(
+      commodity_code = case_when(
+        is.na(commodity_code) ~ "999999",
+        TRUE ~ commodity_code
+      )
+    ) %>%
+    group_by(aggregate_level, trade_flow, year, reporter_iso, partner_iso, commodity_code) %>%
+    summarise(trade_value_usd = sum(trade_value_usd, na.rm = T)) %>%
+    mutate(aggregate_level = 6) %>%
+    select(aggregate_level, trade_flow, year, reporter_iso, partner_iso, commodity_code, trade_value_usd)
+
+  missing_codes_count <- d6 %>%
+    ungroup() %>%
+    filter(is.na(commodity_code)) %>%
+    count() %>%
+    pull()
+
+  stopifnot(missing_codes_count == 0)
+
+  d4 <- d6 %>%
+    mutate(commodity_code = str_sub(commodity_code, 1, 4)) %>%
+    group_by(trade_flow, year, reporter_iso, partner_iso, commodity_code) %>%
+    summarise(trade_value_usd = sum(trade_value_usd, na.rm = T)) %>%
+    mutate(aggregate_level = 4) %>%
+    select(aggregate_level, trade_flow, year, reporter_iso, partner_iso, commodity_code, trade_value_usd)
+
+  d6 %>%
+    group_by(aggregate_level, trade_flow, year, reporter_iso) %>%
+    write_dataset(out_dir, hive_style = T)
+
+  out_d <- ifelse(c == "sitc1", "intermediate-data-sitc1", "intermediate-data-sitc2")
+
+  d4 %>%
+    group_by(aggregate_level, trade_flow, year, reporter_iso) %>%
+    write_dataset(out_d, hive_style = T)
+
+  rm(d6, d4); gc()
+}
+
 map(
-  1962:1975,
+  1962:2020,
+  sitc_to_hs92
+)
+
+map(
+  1976:2020,
+  sitc_to_hs92,
+  c = "sitc2"
+)
+
+# consolidate ----
+
+d_sitc1_2 <- open_dataset("intermediate-data-sitc1/",
+                        partitioning = c("aggregate_level", "trade_flow", "year", "reporter_iso"))
+
+d_sitc2_2 <- open_dataset("intermediate-data-sitc2/",
+                          partitioning = c("aggregate_level", "trade_flow", "year", "reporter_iso"))
+
+d_hs92_2 <- open_dataset("intermediate-data-hs92/",
+                          partitioning = c("aggregate_level", "trade_flow", "year", "reporter_iso"))
+
+map(
+  1962:2020,
   function(y) {
     message(y)
 
-    y2 <- paste0("year=", y)
-
-    if (y < 1976) {
-      d <- d_sitc1
-    } else {
-      d <- d_sitc2
-    }
-
-    d6 <- d %>%
-      filter(
-        year == y2,
-        aggregate_level == "aggregate_level=5",
-        partner_iso != "wld"
-      ) %>%
-      select(aggregate_level, trade_flow, year, reporter_iso, partner_iso, commodity_code, trade_value_usd) %>%
+    d <- d_sitc1_2 %>%
+      filter(year == paste0("year=", y)) %>%
       collect() %>%
-      mutate(
-        aggregate_level = remove_hive(aggregate_level),
-        trade_flow = remove_hive(trade_flow),
-        year = remove_hive(year),
-        reporter_iso = remove_hive(reporter_iso)
+      bind_rows(
+        d_sitc2_2 %>%
+          filter(year == paste0("year=", y)) %>%
+          collect()
+      ) %>%
+      bind_rows(
+        d_hs92_2 %>%
+          filter(year == paste0("year=", y)) %>%
+          collect()
       )
 
-    if (y < 1976) {
-      d6 <- d6 %>%
-        left_join(sitc1_to_sitc2, by = c("commodity_code" = "sitc1")) %>%
-        left_join(sitc2_to_hs92, by = "sitc2")
-    } else {
-      d6 <- d6 %>%
-        left_join(sitc2_to_hs92, by = c("commodity_code" = "sitc2"))
-    }
+    d <- d %>%
+      group_by(aggregate_level, trade_flow, reporter_iso, partner_iso, commodity_code) %>%
+      summarise(trade_value_usd = max(trade_value_usd, na.rm = T))
 
-    d6 <- d6 %>%
-      select(aggregate_level, trade_flow, year, reporter_iso, partner_iso, commodity_code = hs92, trade_value_usd) %>%
-      mutate(
-        commodity_code = case_when(
-          is.na(commodity_code) ~ "999999",
-          TRUE ~ commodity_code
-        )
-      ) %>%
-      group_by(aggregate_level, trade_flow, year, reporter_iso, partner_iso, commodity_code) %>%
-      summarise(trade_value_usd = sum(trade_value_usd, na.rm = T)) %>%
-      mutate(aggregate_level = 6) %>%
-      select(aggregate_level, trade_flow, year, reporter_iso, partner_iso, commodity_code, trade_value_usd)
-
-    missing_codes_count <- d6 %>%
+    d <- d %>%
       ungroup() %>%
-      filter(is.na(commodity_code)) %>%
-      count() %>%
-      pull()
+      mutate_if(is.character, function(x) gsub(".*=", "", x))
 
-    stopifnot(missing_codes_count == 0)
-
-    d4 <- d6 %>%
-      mutate(commodity_code = str_sub(commodity_code, 1, 4)) %>%
-      group_by(trade_flow, year, reporter_iso, partner_iso, commodity_code) %>%
-      summarise(trade_value_usd = sum(trade_value_usd, na.rm = T)) %>%
-      mutate(aggregate_level = 4) %>%
-      select(aggregate_level, trade_flow, year, reporter_iso, partner_iso, commodity_code, trade_value_usd)
-
-    d6 %>%
+    d %>%
+      mutate(year = y) %>%
       group_by(aggregate_level, trade_flow, year, reporter_iso) %>%
       write_dataset(out_dir, hive_style = T)
 
-    d4 %>%
-      group_by(aggregate_level, trade_flow, year, reporter_iso) %>%
-      write_dataset(out_dir, hive_style = T)
-
-    rm(d6, d4); gc()
+    rm(d); gc()
   }
 )
 
