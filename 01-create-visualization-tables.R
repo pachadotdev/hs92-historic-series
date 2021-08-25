@@ -234,7 +234,7 @@ map(
 
 # Attributes -------------------------------------------------------------------
 
-load("../observatory-codes/02-2-product-data-tidy/hs92-product-names.RData")
+load("../atlas-codes/02-2-product-data-tidy/hs-rev1992-product-names.RData")
 
 hs_product_names_92 <- hs_product_names %>%
   select(commodity_code = hs, commodity_shortname_english = product_name) %>%
@@ -290,9 +290,9 @@ attributes_commodities_shortnames <- attributes_commodities %>%
 
 try(dir.create("hs92-visualization/attributes"))
 write_parquet(tradestatistics::ots_countries, "hs92-visualization/attributes/countries.parquet")
-write_parquet(attributes_products, "hs92-visualization/attributes/commodities.parquet")
+write_parquet(attributes_commodities, "hs92-visualization/attributes/commodities.parquet")
 write_parquet(attributes_communities, "hs92-visualization/attributes/communities.parquet")
-write_parquet(attributes_products_shortnames, "hs92-visualization/attributes/commodities_shortnames.parquet")
+write_parquet(attributes_commodities_shortnames, "hs92-visualization/attributes/commodities_shortnames.parquet")
 
 # YR-Communities ---------------------------------------------------------------
 
