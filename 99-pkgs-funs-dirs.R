@@ -3,7 +3,7 @@ library(arrow)
 library(purrr)
 library(stringr)
 
-out_dir <- "hs92-historic/parquet"
+out_dir <- "hs92-historic"
 try(dir.create(out_dir, recursive = T))
 
 remove_hive <- function(x) {
